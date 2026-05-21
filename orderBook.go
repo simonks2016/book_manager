@@ -21,9 +21,12 @@ type OrderBook struct {
 	askH minHeap
 
 	lastUpdate time.Time
+	callback   CallbackVerifyChecksum
 }
 
-func NewOrderBook(productID string) *OrderBook {
+type OrderBookOption func(*OrderBook)
+
+func NewOrderBook(productID string, opts ...OrderBookOption) *OrderBook {
 	ob := &OrderBook{
 		productID: productID,
 		bids:      make(map[int64]float64, 4096),
@@ -33,6 +36,11 @@ func NewOrderBook(productID string) *OrderBook {
 	}
 	heap.Init(&ob.bidH)
 	heap.Init(&ob.askH)
+
+	for _, opt := range opts {
+		opt(ob)
+	}
+
 	return ob
 }
 
@@ -264,9 +272,7 @@ func (ob *OrderBook) ChecksumCRC32() uint32 {
 	return ob.checksumCRC32Locked()
 }
 
-func (ob *OrderBook) checksumCRC32Locked() uint32 {
-	bids := ob.peekTopNBidsLocked(10)
-	asks := ob.peekTopNAsksLocked(10)
+func (ob *OrderBook) defaultGenChecksum(bids, asks []Level) uint32 {
 
 	var sb strings.Builder
 
@@ -281,6 +287,18 @@ func (ob *OrderBook) checksumCRC32Locked() uint32 {
 	}
 
 	return crc32.ChecksumIEEE([]byte(sb.String()))
+}
+
+func (ob *OrderBook) checksumCRC32Locked() uint32 {
+	bids := ob.peekTopNBidsLocked(10)
+	asks := ob.peekTopNAsksLocked(10)
+
+	if ob.callback == nil {
+		return ob.defaultGenChecksum(bids, asks)
+	} else {
+		return ob.callback(bids, asks)
+	}
+
 }
 
 func (ob *OrderBook) peekTopNBidsLocked(n int) []Level {
@@ -360,4 +378,13 @@ func (ob *OrderBook) peekTopNAsksLocked(n int) []Level {
 	}
 
 	return out
+}
+
+func WithChecksum(checksum CallbackVerifyChecksum) OrderBookOption {
+	return func(ob *OrderBook) {
+		if ob.callback == nil {
+			return
+		}
+		ob.callback = checksum
+	}
 }

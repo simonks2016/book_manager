@@ -31,13 +31,11 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 		}
 		if err := book.ApplySnapshot(ev.Ts, ev.Levels...); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_snapshot")
-			m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
 			return
 		}
 	case EventUpdate:
 		if err := book.ApplyL2Update(ev.Levels, ev.Ts); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_update")
-			m.logDirty(ev.Symbol, "invalid_update", ev.Type, book, ev.Checksum)
 			return
 		}
 	default:

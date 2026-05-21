@@ -2,22 +2,18 @@ package bookManager
 
 import (
 	"context"
-	"runtime"
 	"sync"
 	"time"
 )
 
 type BookManager struct {
-	mu       sync.RWMutex
-	books    map[string]*OrderBook
-	dirty    map[string]string
-	workers  []chan BookEvent
-	stopCh   chan struct{}
-	stopOnce sync.Once
-}
-
-func NewBookManager() *BookManager {
-	return NewBookManagerWithWorkers(runtime.GOMAXPROCS(0), 4096)
+	mu                     sync.RWMutex
+	books                  map[string]*OrderBook
+	dirty                  map[string]string
+	workers                []chan BookEvent
+	stopCh                 chan struct{}
+	stopOnce               sync.Once
+	callbackVerifyChecksum CallbackVerifyChecksum
 }
 
 func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
@@ -44,13 +40,18 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 	return m
 }
 
+func (m *BookManager) ChecksumMethod(checksum CallbackVerifyChecksum) *BookManager {
+	m.callbackVerifyChecksum = checksum
+	return m
+}
+
 func (m *BookManager) GetOrCreate(productID string) *OrderBook {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if ob, ok := m.books[productID]; ok {
 		return ob
 	}
-	ob := NewOrderBook(productID)
+	ob := NewOrderBook(productID, WithChecksum(m.callbackVerifyChecksum))
 	m.books[productID] = ob
 	return ob
 }
