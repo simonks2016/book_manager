@@ -26,28 +26,40 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 	case EventSnapshot:
 		if !isValidSnapshotLevels(ev.Levels) {
 			m.MarkDirty(ev.Symbol, "invalid_snapshot")
-			m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
+			if m.printDirtyStatus {
+				m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
+			}
 			return
 		}
 		if err := book.ApplySnapshot(ev.Ts, ev.Levels...); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_snapshot")
+			if m.printDirtyStatus {
+				m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
+			}
 			return
 		}
 	case EventUpdate:
 		if err := book.ApplyL2Update(ev.Levels, ev.Ts); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_update")
+			if m.printDirtyStatus {
+				m.logDirty(ev.Symbol, "invalid_update", ev.Type, book, ev.Checksum)
+			}
 			return
 		}
 	default:
 		m.MarkDirty(ev.Symbol, "invalid_event_type")
-		m.logDirty(ev.Symbol, "invalid_event_type", ev.Type, book, ev.Checksum)
+		if m.printDirtyStatus {
+			m.logDirty(ev.Symbol, "invalid_event_type", ev.Type, book, ev.Checksum)
+		}
 		return
 	}
 
 	crossed := IsCrossed(book)
 	if crossed {
 		m.MarkDirty(ev.Symbol, "crossed_book")
-		m.logDirty(ev.Symbol, "crossed_book", ev.Type, book, ev.Checksum)
+		if m.printDirtyStatus {
+			m.logDirty(ev.Symbol, "crossed_book", ev.Type, book, ev.Checksum)
+		}
 	}
 
 	if ev.Checksum > 0 {
@@ -73,7 +85,10 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 	verified := book.VerifyChecksumByCRC32(checksum)
 	if !verified {
 		m.MarkDirty(symbol, "checksum_mismatch")
-		m.logDirty(symbol, "checksum_mismatch", eventType, book, checksum)
+
+		if m.printDirtyStatus {
+			m.logDirty(symbol, "checksum_mismatch", eventType, book, checksum)
+		}
 		return false
 	}
 
@@ -84,6 +99,11 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 }
 
 func (m *BookManager) logDirty(symbol string, reason string, eventType BookEventType, book *OrderBook, remoteChecksum uint32) {
+
+	if !m.printDirtyStatus {
+		return
+	}
+
 	bestBid, bestAsk, crossedTicks, _ := CrossedInfo(book)
 	localChecksum := uint32(0)
 	if book != nil {

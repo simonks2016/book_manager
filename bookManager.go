@@ -14,6 +14,7 @@ type BookManager struct {
 	stopCh                 chan struct{}
 	stopOnce               sync.Once
 	callbackVerifyChecksum CallbackVerifyChecksum
+	printDirtyStatus       bool
 }
 
 func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
@@ -25,10 +26,11 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 	}
 
 	m := &BookManager{
-		books:   make(map[string]*OrderBook, 16),
-		dirty:   make(map[string]string, 16),
-		workers: make([]chan BookEvent, workerCount),
-		stopCh:  make(chan struct{}),
+		books:            make(map[string]*OrderBook, 16),
+		dirty:            make(map[string]string, 16),
+		workers:          make([]chan BookEvent, workerCount),
+		stopCh:           make(chan struct{}),
+		printDirtyStatus: false,
 	}
 
 	for i := 0; i < workerCount; i++ {
@@ -42,6 +44,11 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 
 func (m *BookManager) ChecksumMethod(checksum CallbackVerifyChecksum) *BookManager {
 	m.callbackVerifyChecksum = checksum
+	return m
+}
+
+func (m *BookManager) Debug() *BookManager {
+	m.printDirtyStatus = true
 	return m
 }
 
