@@ -62,7 +62,7 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 		}
 	}
 
-	if ev.Checksum > 0 {
+	if ev.Checksum > 0 && m.isNeedVerifyChecksum {
 		m.verify(ev.Symbol, ev.Checksum, ev.Type)
 		return
 	}
