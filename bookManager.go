@@ -7,15 +7,18 @@ import (
 )
 
 type BookManager struct {
-	mu                     sync.RWMutex
-	books                  map[string]*OrderBook
-	dirty                  map[string]string
-	workers                []chan BookEvent
-	stopCh                 chan struct{}
-	stopOnce               sync.Once
-	callbackVerifyChecksum CallbackVerifyChecksum
+	mu       sync.RWMutex
+	books    map[string]*OrderBook
+	dirty    map[string]string
+	workers  []chan BookEvent
+	stopCh   chan struct{}
+	stopOnce sync.Once
+
 	printDirtyStatus       bool
-	isNeedVerifyChecksum   bool
+	isEnableChecksum       bool
+	onChecksumFailed       OnChecksumFailed
+	callbackVerifyChecksum ChecksumFunc
+	onMarkDirty            OnMarkDirty
 }
 
 func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
@@ -27,12 +30,12 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 	}
 
 	m := &BookManager{
-		books:                make(map[string]*OrderBook, 16),
-		dirty:                make(map[string]string, 16),
-		workers:              make([]chan BookEvent, workerCount),
-		stopCh:               make(chan struct{}),
-		printDirtyStatus:     false,
-		isNeedVerifyChecksum: true,
+		books:            make(map[string]*OrderBook, 16),
+		dirty:            make(map[string]string, 16),
+		workers:          make([]chan BookEvent, workerCount),
+		stopCh:           make(chan struct{}),
+		printDirtyStatus: false,
+		isEnableChecksum: true,
 	}
 
 	for i := 0; i < workerCount; i++ {
@@ -44,18 +47,18 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 	return m
 }
 
-func (m *BookManager) ChecksumMethod(checksum CallbackVerifyChecksum) *BookManager {
+func (m *BookManager) ChecksumFunc(checksum ChecksumFunc) *BookManager {
 	m.callbackVerifyChecksum = checksum
 	return m
 }
-
-func (m *BookManager) Debug() *BookManager {
-	m.printDirtyStatus = true
+func (m *BookManager) EnableChecksum(isEnable bool, failed OnChecksumFailed) *BookManager {
+	m.isEnableChecksum = isEnable
+	m.onChecksumFailed = failed
 	return m
 }
 
-func (m *BookManager) ForbidVerifyChecksum() *BookManager {
-	m.isNeedVerifyChecksum = false
+func (m *BookManager) OnMarkDirty(fn OnMarkDirty) *BookManager {
+	m.onMarkDirty = fn
 	return m
 }
 

@@ -1,10 +1,5 @@
 package bookManager
 
-import (
-	"log"
-	"strings"
-)
-
 func (m *BookManager) runWorker(ch <-chan BookEvent) {
 	for {
 		select {
@@ -26,30 +21,31 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 	case EventSnapshot:
 		if !isValidSnapshotLevels(ev.Levels) {
 			m.MarkDirty(ev.Symbol, "invalid_snapshot")
-			if m.printDirtyStatus {
-				m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
+			if m.onMarkDirty != nil {
+				m.onMarkDirty(ev.Symbol, "invalid_snapshot", &ev, book)
 			}
 			return
 		}
 		if err := book.ApplySnapshot(ev.Ts, ev.Levels...); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_snapshot")
-			if m.printDirtyStatus {
-				m.logDirty(ev.Symbol, "invalid_snapshot", ev.Type, book, ev.Checksum)
+			if m.onMarkDirty != nil {
+				m.onMarkDirty(ev.Symbol, "invalid_snapshot", &ev, book)
 			}
 			return
 		}
 	case EventUpdate:
 		if err := book.ApplyL2Update(ev.Levels, ev.Ts); err != nil {
 			m.MarkDirty(ev.Symbol, "invalid_update")
-			if m.printDirtyStatus {
-				m.logDirty(ev.Symbol, "invalid_update", ev.Type, book, ev.Checksum)
+			if m.onMarkDirty != nil {
+				m.onMarkDirty(ev.Symbol, "invalid_update", &ev, book)
 			}
 			return
 		}
 	default:
 		m.MarkDirty(ev.Symbol, "invalid_event_type")
-		if m.printDirtyStatus {
-			m.logDirty(ev.Symbol, "invalid_event_type", ev.Type, book, ev.Checksum)
+		if m.onMarkDirty != nil {
+			// 标记
+			m.onMarkDirty(ev.Symbol, "invalid_event_type", &ev, book)
 		}
 		return
 	}
@@ -57,12 +53,12 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 	crossed := IsCrossed(book)
 	if crossed {
 		m.MarkDirty(ev.Symbol, "crossed_book")
-		if m.printDirtyStatus {
-			m.logDirty(ev.Symbol, "crossed_book", ev.Type, book, ev.Checksum)
+		if m.onMarkDirty != nil {
+			m.onMarkDirty(ev.Symbol, "crossed_book", &ev, book)
 		}
 	}
 
-	if ev.Checksum > 0 && m.isNeedVerifyChecksum {
+	if ev.Checksum > 0 && m.isEnableChecksum {
 		m.verify(ev.Symbol, ev.Checksum, ev.Type)
 		return
 	}
@@ -82,12 +78,12 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 		return false
 	}
 
-	verified := book.VerifyChecksumByCRC32(checksum)
+	verified, local := book.VerifyChecksumByCRC32(symbol, checksum)
 	if !verified {
 		m.MarkDirty(symbol, "checksum_mismatch")
-
-		if m.printDirtyStatus {
-			m.logDirty(symbol, "checksum_mismatch", eventType, book, checksum)
+		// 回调函数
+		if m.onChecksumFailed != nil {
+			m.onChecksumFailed(symbol, local, checksum)
 		}
 		return false
 	}
@@ -96,32 +92,6 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 		m.ClearDirty(symbol)
 	}
 	return true
-}
-
-func (m *BookManager) logDirty(symbol string, reason string, eventType BookEventType, book *OrderBook, remoteChecksum uint32) {
-
-	if !m.printDirtyStatus {
-		return
-	}
-
-	bestBid, bestAsk, crossedTicks, _ := CrossedInfo(book)
-	localChecksum := uint32(0)
-	if book != nil {
-		localChecksum = book.ChecksumCRC32()
-	}
-
-	label := strings.ReplaceAll(reason, "_", " ")
-	log.Printf("[%s %s] reason=%s event=%s bestBid=%+v bestAsk=%+v crossedTicks=%d checksum local=%d remote=%d",
-		symbol,
-		label,
-		reason,
-		eventType,
-		bestBid,
-		bestAsk,
-		crossedTicks,
-		localChecksum,
-		remoteChecksum,
-	)
 }
 
 func isValidSnapshotLevels(levels []Level) bool {

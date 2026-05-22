@@ -29,4 +29,6 @@ func CrossedInfo(book *OrderBook) (
 	return bestBid, bestAsk, bestBid.PriceTicks - bestAsk.PriceTicks, true
 }
 
-type CallbackVerifyChecksum func(bids, asks []Level) uint32
+type ChecksumFunc func(symbol string, bids, asks []Level) uint32
+type OnChecksumFailed func(symbol string, local uint32, remote uint32)
+type OnMarkDirty func(symbol string, reason string, ev *BookEvent, book *OrderBook)
