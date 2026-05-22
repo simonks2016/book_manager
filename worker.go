@@ -52,9 +52,11 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 
 	crossed := IsCrossed(book)
 	if crossed {
-		m.MarkDirty(ev.Symbol, "crossed_book")
-		if m.onMarkDirty != nil {
-			m.onMarkDirty(ev.Symbol, "crossed_book", &ev, book)
+		if m.mismatchCounter.Increment(ev.Symbol) > 2 {
+			m.MarkDirty(ev.Symbol, "crossed_book")
+			if m.onMarkDirty != nil {
+				m.onMarkDirty(ev.Symbol, "crossed_book", &ev, book)
+			}
 		}
 	}
 
@@ -80,12 +82,14 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 
 	verified, local := book.VerifyChecksumByCRC32(symbol, checksum)
 	if !verified && local > 0 {
-		m.MarkDirty(symbol, "checksum_mismatch")
-		// 回调函数
-		if m.onChecksumFailed != nil {
-			m.onChecksumFailed(symbol, local, checksum)
+		if m.mismatchCounter.Increment(symbol) > 3 {
+			m.MarkDirty(symbol, "checksum_mismatch")
+			// 回调函数
+			if m.onChecksumFailed != nil {
+				m.onChecksumFailed(symbol, local, checksum)
+			}
+			return false
 		}
-		return false
 	}
 
 	if !IsCrossed(book) {

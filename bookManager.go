@@ -19,6 +19,7 @@ type BookManager struct {
 	onChecksumFailed       OnChecksumFailed
 	callbackVerifyChecksum ChecksumFunc
 	onMarkDirty            OnMarkDirty
+	mismatchCounter        *MismatchCounter
 }
 
 func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
@@ -36,6 +37,7 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 		stopCh:           make(chan struct{}),
 		printDirtyStatus: false,
 		isEnableChecksum: true,
+		mismatchCounter:  NewMismatchCounter(time.Second * time.Duration(10)),
 	}
 
 	for i := 0; i < workerCount; i++ {
@@ -150,7 +152,6 @@ func (m *BookManager) StartSnapshotTimerAsync(ctx context.Context, interval time
 				}
 				// 执行回调（建议考虑是否需要 go callback(response) 异步处理）
 				go callback(snapshots)
-
 			}
 		}
 	}()
