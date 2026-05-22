@@ -265,14 +265,6 @@ func (ob *OrderBook) VerifyChecksumByCRC32(symbol string, remote uint32) (bool, 
 	return local == remote, local
 }
 
-/*
-func (ob *OrderBook) ChecksumCRC32() uint32 {
-	ob.mu.Lock()
-	defer ob.mu.Unlock()
-
-	return ob.checksumCRC32Locked()
-}*/
-
 func (ob *OrderBook) defaultGenChecksum(bids, asks []Level) uint32 {
 
 	var sb strings.Builder
@@ -294,12 +286,11 @@ func (ob *OrderBook) checksumCRC32Locked(symbol string) uint32 {
 	bids := ob.peekTopNBidsLocked(10)
 	asks := ob.peekTopNAsksLocked(10)
 
-	if ob.callback == nil {
-		return ob.defaultGenChecksum(bids, asks)
-	} else {
+	if ob.callback != nil {
 		return ob.callback(symbol, bids, asks)
 	}
 
+	return ob.defaultGenChecksum(bids, asks)
 }
 
 func (ob *OrderBook) peekTopNBidsLocked(n int) []Level {
@@ -383,9 +374,6 @@ func (ob *OrderBook) peekTopNAsksLocked(n int) []Level {
 
 func WithChecksum(checksum ChecksumFunc) OrderBookOption {
 	return func(ob *OrderBook) {
-		if ob.callback == nil {
-			return
-		}
 		ob.callback = checksum
 	}
 }
