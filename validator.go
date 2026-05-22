@@ -22,7 +22,7 @@ func CrossedInfo(book *OrderBook) (
 
 	bestBid = bids[0]
 	bestAsk = asks[0]
-	if bestBid.PriceTicks < bestAsk.PriceTicks {
+	if bestBid.PriceTicks <= bestAsk.PriceTicks {
 		return bestBid, bestAsk, 0, false
 	}
 
