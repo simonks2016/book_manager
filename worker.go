@@ -79,7 +79,7 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 	}
 
 	verified, local := book.VerifyChecksumByCRC32(symbol, checksum)
-	if !verified {
+	if !verified && local > 0 {
 		m.MarkDirty(symbol, "checksum_mismatch")
 		// 回调函数
 		if m.onChecksumFailed != nil {

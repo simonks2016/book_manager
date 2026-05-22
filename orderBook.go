@@ -261,6 +261,9 @@ func (ob *OrderBook) VerifyChecksumByCRC32(symbol string, remote uint32) (bool, 
 	defer ob.mu.Unlock()
 
 	local := ob.checksumCRC32Locked(symbol)
+	if local == 0 {
+		return false, 0
+	}
 	// 返回结果
 	return local == remote, local
 }
