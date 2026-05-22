@@ -50,7 +50,7 @@ func (m *BookManager) handleBookEvent(ev BookEvent) {
 		return
 	}
 
-	crossed := IsCrossed(book)
+	crossed := IsCrossed(book, m.CrossedThreshold)
 	if crossed {
 		if m.mismatchCounter.Increment(ev.Symbol) > 2 {
 			m.MarkDirty(ev.Symbol, "crossed_book")
@@ -92,7 +92,7 @@ func (m *BookManager) verify(symbol string, checksum uint32, eventType BookEvent
 		}
 	}
 
-	if !IsCrossed(book) {
+	if !IsCrossed(book, m.CrossedThreshold) {
 		m.ClearDirty(symbol)
 	}
 	return true

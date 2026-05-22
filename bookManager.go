@@ -20,9 +20,11 @@ type BookManager struct {
 	callbackVerifyChecksum ChecksumFunc
 	onMarkDirty            OnMarkDirty
 	mismatchCounter        *MismatchCounter
+
+	CrossedThreshold int64
 }
 
-func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
+func NewBookManagerWithWorkers(workerCount int, bufferSize int, opts ...Option) *BookManager {
 	if workerCount <= 0 {
 		workerCount = 1
 	}
@@ -38,6 +40,11 @@ func NewBookManagerWithWorkers(workerCount int, bufferSize int) *BookManager {
 		printDirtyStatus: false,
 		isEnableChecksum: true,
 		mismatchCounter:  NewMismatchCounter(time.Second * time.Duration(10)),
+		CrossedThreshold: 5,
+	}
+
+	for _, opt := range opts {
+		opt(m)
 	}
 
 	for i := 0; i < workerCount; i++ {

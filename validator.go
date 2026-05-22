@@ -1,7 +1,11 @@
 package bookManager
 
-func IsCrossed(book *OrderBook) bool {
-	_, _, _, ok := CrossedInfo(book)
+func IsCrossed(book *OrderBook, CrossedThreshold int64) bool {
+	_, _, tick, ok := CrossedInfo(book)
+
+	if !ok {
+		return tick >= CrossedThreshold
+	}
 	return ok
 }
 
